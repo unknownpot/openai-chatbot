@@ -25,21 +25,36 @@ public class ChatService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     public String getChatResponse(String userMessage) {
-        OpenAIMessage user = new OpenAIMessage("user", userMessage);
-        OpenAIRequest request = new OpenAIRequest();
-        request.setModel(config.getModel());
-        request.setMessages(List.of(user));
+        try {
+            OpenAIMessage user = new OpenAIMessage("user", userMessage);
+            OpenAIRequest request = new OpenAIRequest();
+            request.setModel(config.getModel());
+            request.setMessages(List.of(user));
 
+            HttpHeaders headers = getHttpHeaders();
+
+            HttpEntity<OpenAIRequest> entity = new HttpEntity<>(request, headers);
+
+            ResponseEntity<OpenAIResponse> response = restTemplate.postForEntity(
+                    config.getEndpoint(), entity, OpenAIResponse.class);
+
+            if (response.getBody() != null && response.getBody().getChoices() != null
+                    && !response.getBody().getChoices().isEmpty()) {
+                return response.getBody().getChoices().get(0).getMessage().getContent();
+            } else {
+                throw new IllegalAccessException("Invalid response from OpenAI API");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error while communicating with OpenAI API: " + e.getMessage(), e);
+        }
+
+    }
+
+    private HttpHeaders getHttpHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(config.getApiKey());
-
-        HttpEntity<OpenAIRequest> entity = new HttpEntity<>(request, headers);
-
-        ResponseEntity<OpenAIResponse> response = restTemplate.postForEntity(
-                config.getEndpoint(), entity, OpenAIResponse.class);
-
-        return Objects.requireNonNull(response.getBody()).getChoices().get(0).getMessage().getContent();
+        return headers;
     }
 }
 
